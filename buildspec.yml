@@ -5,17 +5,13 @@ env:
     DOCKER_REGISTRY_USERNAME: /myapp/docker-credentials/username
     DOCKER_REGISTRY_PASSWORD: /myapp/docker-credentials/password
     DOCKER_REGISTRY_URL: /myapp/docker-registry/url
-  variables:
-    IMAGE_REPO_NAME: aws-node-todo-app-cicd
-    IMAGE_TAG: v1
 
 phases:
   install:
     runtime-versions:
-      nodejs: 12.2.0
+      nodejs: 12
     commands:
       - echo Installing Node.js and npm...
-      - n 12.2.0
       - npm config set registry https://registry.npmjs.org/
 
   pre_build:
@@ -32,16 +28,14 @@ phases:
   build:
     commands:
       - echo Build started on `date`
-      - echo Packaging application into a zip file...
-      - zip -r node-todo-app.zip * .[^.]*
 
       # Recompute IMAGE_NAME in this phase
       - IMAGE_NAME="$DOCKER_REGISTRY_USERNAME/$IMAGE_REPO_NAME"
       - echo "IMAGE_NAME (build) = $IMAGE_NAME"
 
-      - echo "Building Docker image $IMAGE_NAME:latest ..."
-      - docker build -t $IMAGE_NAME:latest .
-      - docker tag $IMAGE_NAME:latest $IMAGE_NAME:$IMAGE_TAG
+      - echo "Building Docker image $IMAGE_NAME:$IMAGE_TAG ..."
+      - docker build -t $IMAGE_NAME:$IMAGE_TAG .
+      - docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:latest
 
   post_build:
     commands:
@@ -52,11 +46,8 @@ phases:
       - echo "IMAGE_NAME (post_build) = $IMAGE_NAME"
 
       - echo "Pushing Docker images..."
-      - docker push $IMAGE_NAME:latest
       - docker push $IMAGE_NAME:$IMAGE_TAG
-
-      - echo Uploading zip file to S3 root location...
-      - aws s3 cp node-todo-app.zip s3://my-codepipeline-artifacts-n/node-todo-app/
+      - docker push $IMAGE_NAME:latest
 
       - echo Writing image definitions file...
       - printf '{"ImageURI":"%s", "Port":8000}' $IMAGE_NAME:$IMAGE_TAG > imageDefinitions.json
@@ -71,5 +62,4 @@ artifacts:
     - 'node_modules/**/*'
     - '.git/**/*'
     - '.gitignore'
-    - 'README.md'
     - 'package-lock.json'
